@@ -1,116 +1,64 @@
 // /basic_setup.js
 
 document.addEventListener('DOMContentLoaded', () => {
-    // --- DOM References (Keep existing Basic ones) ---
+    // --- DOM References ---
     const form = document.getElementById('quiz-setup-form');
     const numQuestionsInput = document.getElementById('num-questions');
     const timeLimitInput = document.getElementById('time-limit');
     const startButton = document.getElementById('start-quiz-button');
-    const backButton = document.getElementById('back-button'); // Make sure this exists in HTML
+    const backButton = document.getElementById('back-button');
 
     // Error message elements
     const numQuestionsError = document.getElementById('num-questions-error');
     const timeLimitError = document.getElementById('time-limit-error');
-    // No topicsError or topicSelectionDiv needed for Basic
 
-    // --- NEW: Reference for the status message area ---
-    // Needs to exist in basic_setup.html: <div id="access-status-message" class="status-message" role="status"></div>
+    // Status message area (for validation/UX feedback)
     const accessStatusMessageDiv = document.getElementById('access-status-message');
 
-    // --- Constants for this specific setup (Basic) ---
+    // --- Constants ---
     const QUIZ_TYPE = 'basic';
     const TARGET_MCQ_FILE = 'basic_mcq.html';
-    const REQUIRED_PACKAGE = 'basic'; // The package name needed for Basic quiz
-    const CONFIG_STORAGE_KEY = 'basicQuizConfig'; // Use the specific key for Basic config
-    const FIXED_SUBJECTS = ["Physics", "Chemistry", "Biology", "English"]; // Keep fixed subjects
+    const CONFIG_STORAGE_KEY = 'basicQuizConfig';
+    const FIXED_SUBJECTS = ["Physics", "Chemistry", "Biology", "English"];
 
-    // --- Navigation (Keep As Is) ---
+    // --- Navigation ---
     if (backButton) {
         backButton.addEventListener('click', () => {
-            window.location.href = '/'; // Go back to the main portal (index.html)
+            window.location.href = '/';
         });
     } else {
         console.warn("Back button element not found.");
     }
 
-    // --- Form Submission Logic (Integrate Access Check) ---
+    // --- Form Submission Logic (Simplified - No Access Check) ---
     if (form) {
-        form.addEventListener('submit', async (event) => { // Make the handler async
+        form.addEventListener('submit', (event) => {
             event.preventDefault();
-            clearAccessStatusMessage(); // Clear previous access messages
+            clearAccessStatusMessage();
 
-            if (validateForm()) { // Use existing Basic validation
-                // --- Collect and Store Config Data (Keep Basic's fixed subject logic) ---
+            if (validateForm()) {
+                // Collect config data
                 const numQuestions = parseInt(numQuestionsInput.value, 10);
                 const timeLimit = parseInt(timeLimitInput.value, 10);
-                const selectedSubjects = FIXED_SUBJECTS; // Use fixed subjects
+                const selectedSubjects = FIXED_SUBJECTS; // Fixed subjects for Basic
 
                 const quizConfig = {
                     numQuestions: numQuestions,
                     timeLimit: timeLimit,
-                    selectedSubjects: selectedSubjects, // Store fixed list
+                    selectedSubjects: selectedSubjects,
                     quizType: QUIZ_TYPE
                 };
-                // Save config BEFORE attempting redirect, using the correct key
+
+                // Save config to localStorage
                 localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(quizConfig));
                 console.log('Basic Quiz config saved to localStorage:', quizConfig);
 
-                // --- NEW: Access Token Request Logic (Copied template) ---
-                setAccessStatusMessage("Verifying access...", false, 'loading');
-                startButton.disabled = true; // Disable button during check
-                startButton.textContent = 'Checking...'; // Update button text
-
-                try {
-                    const response = await fetch('/api/generate-access-token', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                             requestedFile: TARGET_MCQ_FILE,    // Use Basic target file
-                             requiredPackage: REQUIRED_PACKAGE // Use Basic required package
-                        })
-                    });
-
-                    if (response.ok) {
-                        // Access Granted!
-                        setAccessStatusMessage("Access granted. Starting quiz...", false, 'success');
-                        setTimeout(() => {
-                             window.location.href = TARGET_MCQ_FILE; // Proceed to Basic MCQ page
-                        }, 500);
-
-                    } else {
-                        // Access Denied or other error
-                        let errorMsg = "Could not start quiz.";
-                        let responseBody = null;
-                         try {
-                            responseBody = await response.json();
-                            errorMsg = responseBody.error || responseBody.message || 'An unknown error occurred.';
-                         } catch (e) { try { errorMsg = await response.text(); } catch(e2) {} }
-
-                        if (response.status === 401) {
-                            errorMsg = `Authentication Required: Please log in first to access this quiz.`;
-                        } else if (response.status === 403) {
-                             errorMsg = `Permission Denied: You do not have access to the '${REQUIRED_PACKAGE}' package. (${errorMsg})`;
-                        } else {
-                            errorMsg = `Error (${response.status}): ${errorMsg || 'An unknown server error occurred.'}`;
-                        }
-
-                        setAccessStatusMessage(errorMsg, true); // Display error
-                        startButton.disabled = false; // Re-enable button on failure
-                        startButton.textContent = 'Start Basic Quiz →'; // Restore button text
-                    }
-
-                } catch (error) {
-                    console.error("Error requesting access token:", error);
-                    setAccessStatusMessage(`Network Error: Could not contact verification server. Please check your connection.`, true);
-                    startButton.disabled = false; // Re-enable button on network error
-                    startButton.textContent = 'Start Basic Quiz →'; // Restore button text
-                }
-                // --- END: Access Token Request Logic ---
-
-                // ** REMOVE the original direct redirect **
-                // window.location.href = 'basic_mcq.html';
+                // Immediate redirect to MCQ page with UX feedback
+                setAccessStatusMessage("Starting quiz...", false, 'success');
+                
+                setTimeout(() => {
+                    window.location.href = TARGET_MCQ_FILE;
+                }, 300);
             }
         });
     } else {
@@ -120,13 +68,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
-    // --- Validation Functions (Keep Basic's logic) ---
+    // --- Validation Functions ---
     function validateForm() {
         let isValid = true;
         clearErrors();
 
-        // Validate Number of Questions (Min 10 for basic)
+        // Validate Number of Questions (Min 10 for Basic)
         const numQuestions = parseInt(numQuestionsInput.value, 10);
         if (isNaN(numQuestions) || numQuestions < 10 || numQuestions > 100) {
             showError(numQuestionsError, 'Please enter a number between 10 and 100.', numQuestionsInput);
@@ -140,32 +87,31 @@ document.addEventListener('DOMContentLoaded', () => {
             isValid = false;
         }
 
-        // No subject validation needed as they are fixed
-
+        // No subject validation needed (fixed subjects)
         return isValid;
     }
 
     function showError(errorElement, message, inputElement = null) {
         if (!errorElement) return;
         errorElement.textContent = message;
-        errorElement.style.display = 'block'; // Make error visible
+        errorElement.style.display = 'block';
         if (inputElement) {
             inputElement.classList.add('input-error');
         }
     }
 
     function clearErrors() {
-        if (numQuestionsError) numQuestionsError.textContent = ''; numQuestionsError.style.display = 'none';
-        if (timeLimitError) timeLimitError.textContent = ''; timeLimitError.style.display = 'none';
+        if (numQuestionsError) { numQuestionsError.textContent = ''; numQuestionsError.style.display = 'none'; }
+        if (timeLimitError) { timeLimitError.textContent = ''; timeLimitError.style.display = 'none'; }
         if (numQuestionsInput) numQuestionsInput.classList.remove('input-error');
         if (timeLimitInput) timeLimitInput.classList.remove('input-error');
     }
 
-    // --- Dynamic Error Clearing (Keep Basic's logic) ---
+    // --- Dynamic Error Clearing on Input ---
     if (numQuestionsInput) {
         numQuestionsInput.addEventListener('input', () => {
             if (numQuestionsInput.classList.contains('input-error')) {
-                 if(numQuestionsError) numQuestionsError.textContent = ''; numQuestionsError.style.display = 'none';
+                 if(numQuestionsError) { numQuestionsError.textContent = ''; numQuestionsError.style.display = 'none'; }
                  numQuestionsInput.classList.remove('input-error');
             }
         });
@@ -173,36 +119,40 @@ document.addEventListener('DOMContentLoaded', () => {
     if (timeLimitInput) {
         timeLimitInput.addEventListener('input', () => {
             if (timeLimitInput.classList.contains('input-error')) {
-                 if(timeLimitError) timeLimitError.textContent = ''; timeLimitError.style.display = 'none';
+                 if(timeLimitError) { timeLimitError.textContent = ''; timeLimitError.style.display = 'none'; }
                  timeLimitInput.classList.remove('input-error');
             }
         });
     }
 
-    // --- NEW: Helper Functions for Access Status Message ---
+    // --- Helper Functions for Status Messages ---
     function setAccessStatusMessage(message, isError = false, type = null) {
         if (!accessStatusMessageDiv) return;
         accessStatusMessageDiv.textContent = message;
         accessStatusMessageDiv.className = 'status-message'; // Reset classes
-        if (isError) { accessStatusMessageDiv.classList.add('error'); }
-        else if (type === 'success') { accessStatusMessageDiv.classList.add('success'); }
-        else if (type === 'loading') { accessStatusMessageDiv.classList.add('loading'); }
-        accessStatusMessageDiv.style.display = 'block'; // Make visible
+        if (isError) {
+            accessStatusMessageDiv.classList.add('error');
+        } else if (type === 'success') {
+             accessStatusMessageDiv.classList.add('success');
+        } else if (type === 'loading') {
+            accessStatusMessageDiv.classList.add('loading');
+        }
+        accessStatusMessageDiv.style.display = 'block';
     }
 
     function clearAccessStatusMessage() {
          if (!accessStatusMessageDiv) return;
          accessStatusMessageDiv.textContent = '';
-         accessStatusMessageDiv.className = 'status-message'; // Reset classes
-         accessStatusMessageDiv.style.display = 'none'; // Hide it
+         accessStatusMessageDiv.className = 'status-message';
+         accessStatusMessageDiv.style.display = 'none';
     }
 
-    // --- NEW: Initial State ---
-    clearErrors(); // Ensure validation errors are hidden on load
-    clearAccessStatusMessage(); // Clear access message on load
+    // --- Initial State ---
+    clearErrors();
+    clearAccessStatusMessage();
     if (startButton) {
-        startButton.disabled = false; // Ensure button is enabled on load
-        startButton.textContent = 'Start Basic Quiz →'; // Ensure default text
+        startButton.disabled = false;
+        startButton.textContent = 'Start Basic Quiz →';
     }
 
 }); // End DOMContentLoaded
